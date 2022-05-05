@@ -1,0 +1,127 @@
+---
+title: "TSG6"
+author: "Josef Bryja"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 3, fig.height = 1.5)
+```
+
+Nejdříve je třeba načíst knihovny funkcí. Knihovna drawProteins dokáže stáhonut informace o doménové architekruře z databáze UniProtKB. Knihovna ggplot2 obsahuje pokročilé funkce pro vykreslování grafů.
+```{r knihovny}
+library(drawProteins)
+library(ggplot2)
+```
+
+Po načtení knihoven je třeba načíst a upravit strukturní data pro protein TSG6 (P98066). 
+```{r dataset}
+data <- drawProteins::get_features("P98066")
+data <- drawProteins::feature_to_dataframe(data)
+```
+
+Pro vykreslení doménové struktury byla využita grafika knihovny ggplot2 v kombinaci s barevnými paletami knihovny RColorBrewer.
+Prvním krokem bylo vykreslit prázdný graf, který se stane "prázdným plátnem" pro vytvoření schématu proteinové struktury.
+```{r plot}
+forPlot <- data.frame(x = seq(min(data$begin), max(data$end), by = 1), 
+                      y = rep(1, length(seq(min(data$begin), max(data$end), by = 1))))
+p <- ggplot(forPlot, aes(x = x, y = y))+
+  ylim(0.4, 1.6)+
+  theme_void()
+```
+
+Nyní je do tohoto prázdného grafu vykreslit hlavní řetězec proteinu.
+```{r chain}
+p <- p + geom_rect(xmin = min(data$begin),
+                   xmax = max(data$end),
+                   ymin = 0.75,
+                   ymax = 1.25,
+                   color = "grey20",
+                   fill = "azure2",
+                   size = 1)
+p
+```
+
+Do struktury proteinového řetězce je nyní možné vnést funkční domény...
+```{r domains}
+domainCol <- c("darkgoldenrod2", "darkorchid3")
+if("DOMAIN" %in% data$type){
+  domains <- data.frame(begin = data$begin[data$type == "DOMAIN"],
+                      end = data$end[data$type == "DOMAIN"],
+                      description = data$description[data$type == "DOMAIN"])
+  
+  for(i in 1:nrow(domains)){
+    p <- p + geom_rect(xmin = domains$begin[i],
+                       xmax = domains$end[i],
+                       ymin = 0.73,
+                       ymax = 1.27,
+                       color = "grey20",
+                       fill = domainCol[i],
+                       size = 1)
+    }
+}
+
+p
+```
+
+Transmembránové oblasti...
+```{r transmembrane, warning=FALSE}
+if("TRANSMEM" %in% data$type){
+  transmembrane <- data.frame(begin = data$begin[data$type == "TRANSMEM"],
+                      end = data$end[data$type == "TRANSMEM"],
+                      description = data$description[data$type == "TRANSMEM"])
+
+  for(i in 1:nrow(transmembrane)){ 
+    p <- p + geom_rect(xmin = transmembrane$begin[i],
+                       xmax = transmembrane$end[i],
+                       ymin = 0.73,
+                       ymax = 1.27,
+                       color = "grey20",
+                       fill = "firebrick2",
+                       size = 1)
+    }
+} 
+
+p
+```
+
+Jelikož je TSG6 solubilní receptor, neobsahuje žádné transmembránové oblasti. 
+Nyní je třeba manuálně vytvořit legendu k jednotlivým doménnám.
+
+```{r legend}
+p <- p + geom_rect(xmin = 0,
+                   xmax = (max(data$end)/50),
+                   ymin = 1.4,
+                   ymax = 1.45,
+                   color = "grey20",
+                   fill = "darkorchid3",
+                   size = 1)+
+         geom_rect(xmin = 0,
+                   xmax = (max(data$end)/50),
+                   ymin = 1.5,
+                   ymax = 1.55,
+                   color = "grey20",
+                   fill = "darkgoldenrod2",
+                   size = 1)+
+         geom_text(x = (max(data$end)/50) + 20, 
+                   y = 1.525,
+                   label = "Link module",
+                   hjust = 0
+                   )+
+         geom_text(x = (max(data$end)/50) + 20, 
+                   y = 1.425,
+                   label = "CUB doména",
+                   hjust = 0)
+
+p
+```
+
+Na závěr je třeba obrázek uložit.
+```{r ukladani}
+ggsave("TSG6.pdf", width = 6, height = 3)
+```
+
+Informace o balíčcích:
+```{r SessionInfo}
+sessionInfo()
+```

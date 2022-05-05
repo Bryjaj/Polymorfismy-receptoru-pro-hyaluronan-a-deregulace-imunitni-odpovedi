@@ -1,0 +1,70 @@
+---
+title: "LYVE1 - relevantní mutace"
+author: "Josef Bryja"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 3, fig.height = 1.5)
+```
+
+Nejdříve je třeba načíst knihovnu tidyverse, která obsahuje balíčky funkcí pro práci s daty a knihovnu xlsx, která umožňuje načítat soubory ve formátu xlsx do prostředí R.
+```{r knihovny}
+library(tidyverse)
+library(xlsx)
+```
+
+Nyní je třaba načíst a upravit surová data
+```{r dataset, warning = FALSE}
+ConSurf <- read.xlsx("ConSurf_LYVE1.xlsx", sheetName = "List1")
+ConSurf <- ConSurf %>% 
+  separate(COLOR, into = c("COLOR", "N")) 
+ConSurf$N <- NULL
+ConSurf$COLOR <- as.numeric(ConSurf$COLOR)
+
+
+GnomAD <- read.csv("GnomAD_LYVE1.csv")
+```
+
+Z data framu ConSurf_LYVE1 je nyní možné vybrat pouze residua, která byla nástrojem ConSurf ohodnocena skóre vyšším než 7.
+```{r conservation}
+konzervovanost <- ConSurf$POS[ConSurf$COLOR > 7]
+```
+
+Do tabulky GnomAD je třeba přidat sloupec obsahující pouze pozice mutací, které lze získat z HGVS kódu mutací a to tak, že se odstraní všechny znaky kromě čísel. 
+```{r genpos}
+GnomAD$genepos <- as.integer(str_replace_all(GnomAD$HGVS.Consequence,pattern = "[a-zA-Z.]",""))
+```
+
+Po manuální prohlídce této proměnné je třeba provést manuální úpravy, protože HGVS kód může obsahovat další přídatná čísla nesouvisející s pozicí mutace. Příkaz `head()` ukazuje pouze prvních 6 řádků kontrolního data framu. Při kontrole je však třeba prohlédnout celý data frame.
+```{r genposCheck}
+head(data.frame(Genpos = GnomAD$genepos, 
+                HGVS = GnomAD$HGVS.Consequence))
+```
+
+V první mutaci se nachází kromě pozice ještě číslo 5. Tuto pozici je tedy třeba upravit.
+```{r upravyGenpos}
+GnomAD$genepos[1] <- 323
+```
+
+Nyní je možné vyfiltrovat mutace z databáze GnomAD, které se nacházejí na konzervovaných residuích a zároveň se v databázi vyskytují u více než 10 jedinců. Tyto mutace byly uloženy do proměnné `RelMut`, kde byly seřazeny podle frekvence výskytu v populaci.
+```{r filtering}
+RelMut <- GnomAD %>% 
+  filter(genepos %in% konzervovanost)
+
+RelMut <- RelMut %>% 
+  arrange(desc(Allele.Count)) %>% 
+  subset(Allele.Count > 10)
+```
+
+Relevantní mutace je nyní možné zobrazit pouze jako tabulku obsahující HVGS kód, počet jedinců s touto mutací a frekvenci výskytu této alely v populaci.
+```{r tab}
+data.frame(HVGS = RelMut$HGVS.Consequence, 
+           Allele.Count = RelMut$Allele.Count,
+           Allele.Frequency = RelMut$Allele.Frequency)
+```
+
+Informace o balíčcích:
+```{r SessionInfo}
+sessionInfo()
+```

@@ -1,0 +1,137 @@
+---
+title: "LYVE1"
+author: "Josef Bryja"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 3, fig.height = 1.5)
+```
+
+Nejdříve je třeba načíst knihovny funkcí. Knihovna drawProteins dokáže stáhonut informace o doménové architekruře z databáze UniProtKB. Knihovna ggplot2 obsahuje pokročilé funkce pro vykreslování grafů.
+```{r knihovny}
+library(drawProteins)
+library(ggplot2)
+```
+
+Po načtení knihoven je třeba načíst a upravit strukturní data pro protein LYVE1 z databáze UniProtKB (Q9Y5Y7). 
+```{r dataset}
+data <- drawProteins::get_features("Q9Y5Y7")
+data <- drawProteins::feature_to_dataframe(data)
+```
+
+Pro vykreslení doménové struktury byla využita grafika knihovny ggplot2.
+Prvním krokem bylo vykreslit prázdný graf, který se stane "prázdným plátnem" pro vytvoření schématu proteinové struktury.
+```{r plot}
+forPlot <- data.frame(x = seq(min(data$begin), max(data$end), by = 1), 
+                      y = rep(1, length(seq(min(data$begin), max(data$end), by = 1))))
+p <- ggplot(forPlot, aes(x = x, y = y))+
+  ylim(0.4, 1.6)+
+  theme_void()
+```
+
+Nyní je do tohoto prázdného grafu vykreslit hlavní řetězec proteinu.
+```{r chain}
+p <- p + geom_rect(xmin = min(data$begin),
+                   xmax = max(data$end),
+                   ymin = 0.75,
+                   ymax = 1.25,
+                   color = "grey20",
+                   fill = "azure2",
+                   size = 1)
+p
+```
+
+Do struktury proteinového řetězce je nyní možné vnést funkční domény...
+```{r domains}
+if("DOMAIN" %in% data$type){
+  domains <- data.frame(begin = data$begin[data$type == "DOMAIN"],
+                      end = data$end[data$type == "DOMAIN"],
+                      description = data$description[data$type == "DOMAIN"])
+  
+  for(i in 1:nrow(domains)){
+    p <- p + geom_rect(xmin = domains$begin[i],
+                       xmax = domains$end[i],
+                       ymin = 0.73,
+                       ymax = 1.27,
+                       color = "grey20",
+                       fill = "darkgoldenrod2",
+                       size = 1)
+    }
+}
+
+p
+```
+
+Transmembránové oblasti...
+```{r transmembrane, warning=FALSE}
+if("TRANSMEM" %in% data$type){
+  transmembrane <- data.frame(begin = data$begin[data$type == "TRANSMEM"],
+                      end = data$end[data$type == "TRANSMEM"],
+                      description = data$description[data$type == "TRANSMEM"])
+
+  for(i in 1:nrow(transmembrane)){ 
+    p <- p + geom_rect(xmin = transmembrane$begin[i],
+                       xmax = transmembrane$end[i],
+                       ymin = 0.73,
+                       ymax = 1.27,
+                       color = "grey20",
+                       fill = "firebrick2",
+                       size = 1)
+    }
+} 
+
+p
+```
+
+V posledním kroku je třeba manuálně vytvořit legendu jednotlivých domén a oblastí.
+```{r legend}
+p <- p + geom_rect(xmin = 0,
+                   xmax = (max(data$end)/50),
+                   ymin = 1.4,
+                   ymax = 1.45,
+                   color = "grey20",
+                   fill = "firebrick2",
+                   size = 1)+
+         geom_rect(xmin = 0,
+                   xmax = (max(data$end)/50),
+                   ymin = 1.5,
+                   ymax = 1.55,
+                   color = "grey20",
+                   fill = "darkgoldenrod2",
+                   size = 1)+
+         geom_text(x = (max(data$end)/50) + 20, 
+                    y = 1.525,
+                    label = "Link module",
+                    hjust = 0
+                    )+
+         geom_text(x = (max(data$end)/50) + 20, 
+                    y = 1.425,
+                    label = "Transmembránová oblast",
+                    hjust = 0)
+
+p
+```
+
+V obrázku je také možné znázornit některá residua. Zde je zvýrazněný cystein C201, který je důležitý pro homodimerizaci proteinu LYVE1.
+```{r residua}
+p <- p + geom_segment(x = 201,
+                      xend = 201,
+                      y = 0.755,
+                      yend = 1.245,
+                      col = "darkgreen")+
+         geom_text(x = 201,
+                   y = 0.655,
+                   label = "C201")
+p
+```
+
+Na závěr je třeba obrázek uložit.
+```{r ukladani}
+ggsave("LYVE1.pdf", width = 6, height = 3)
+```
+
+Informace o balíčcích:
+```{r SessionInfo}
+sessionInfo()
+```
